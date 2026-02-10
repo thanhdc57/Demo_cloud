@@ -5,10 +5,21 @@ set -e
 
 echo "Starting deployment to Google Cloud Shell environment..."
 
+# Check for docker compose (v2) or docker-compose (v1)
+if command -v docker-compose &> /dev/null; then
+    COMPOSE_CMD="docker-compose"
+elif docker compose version &> /dev/null; then
+    COMPOSE_CMD="docker compose"
+else
+    echo "Error: docker-compose or docker compose not found."
+    exit 1
+fi
+
+echo "Using command: $COMPOSE_CMD"
+
 # 1. Build and Run using Docker Compose
-# This assumes docker-compose is available (standard in Cloud Shell)
 echo "Building and starting containers..."
-docker-compose up -d --build
+$COMPOSE_CMD up -d --build
 
 echo "Containers are starting..."
 echo "Waiting for services to be ready..."
