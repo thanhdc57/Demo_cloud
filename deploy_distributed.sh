@@ -114,6 +114,9 @@ fi
 # 4. Deploy Database
 echo "Deploying Database to $DB_VM..."
 gcloud compute ssh $DB_VM --zone=$ZONE --command="
+    # Stop existing
+    sudo docker rm -f postgres || true
+    
     sudo docker run -d \
         --name postgres \
         -e POSTGRES_USER=postgres \
