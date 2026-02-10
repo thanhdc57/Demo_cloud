@@ -148,7 +148,7 @@ gcloud compute ssh $BACKEND_VM --zone=$ZONE --command="
 # Build Stage
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
-COPY ["DemoCloud.Backend.csproj", "./"]
+COPY DemoCloud.Backend.csproj ./
 RUN dotnet restore "./DemoCloud.Backend.csproj"
 COPY . .
 WORKDIR "/src/."
