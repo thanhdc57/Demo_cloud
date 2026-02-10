@@ -6,10 +6,10 @@ set -e
 echo "Starting deployment to Google Cloud Shell environment..."
 
 # Check for docker compose (v2) or docker-compose (v1)
-if command -v docker-compose &> /dev/null; then
-    COMPOSE_CMD="docker-compose"
-elif docker compose version &> /dev/null; then
+if docker compose version &> /dev/null; then
     COMPOSE_CMD="docker compose"
+elif command -v docker-compose &> /dev/null; then
+    COMPOSE_CMD="docker-compose"
 else
     echo "Error: docker-compose or docker compose not found."
     exit 1
