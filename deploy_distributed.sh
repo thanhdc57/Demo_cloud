@@ -167,7 +167,7 @@ RUN dotnet publish "DemoCloud.Backend.csproj" -c Release -o /app/publish /p:UseA
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "DemoCloud.Backend.dll"]
+ENTRYPOINT dotnet DemoCloud.Backend.dll
 EOF
 
     # Build and Run
