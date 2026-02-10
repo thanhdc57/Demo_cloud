@@ -135,10 +135,35 @@ gcloud compute ssh $BACKEND_VM --zone=$ZONE --command="
     tar -xzf backend.tar.gz
     cd DemoCloud.Backend
     
-    # Create Dockerfile if not exists (it should be in folder)
+    # Validation: List files to ensure we are in correct dir
+    ls -F
     
-    echo 'Building Backend...'
-    sudo docker build -t democloud-backend .
+    # We need to adjust the Dockerfile because we are building from within the project dir, 
+    # but the original Dockerfile expects to be at solution level.
+    # We will create a modified Dockerfile for this specific deployment.
+    cat <<EOF > Dockerfile.vm
+# Build Stage
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+COPY ["DemoCloud.Backend.csproj", "./"]
+RUN dotnet restore "./DemoCloud.Backend.csproj"
+COPY . .
+WORKDIR "/src/."
+RUN dotnet build "DemoCloud.Backend.csproj" -c Release -o /app/build
+
+# Publish Stage
+FROM build AS publish
+RUN dotnet publish "DemoCloud.Backend.csproj" -c Release -o /app/publish /p:UseAppHost=false
+
+# Final Stage
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
+WORKDIR /app
+COPY --from=publish /app/publish .
+ENTRYPOINT ["dotnet", "DemoCloud.Backend.dll"]
+EOF
+
+    echo 'Building Backend with modified Dockerfile...'
+    sudo docker build -t democloud-backend -f Dockerfile.vm .
     
     echo 'Running Backend...'
     # Stop existing
