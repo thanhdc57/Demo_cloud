@@ -139,17 +139,18 @@ echo "Deploying Backend to $BACKEND_VM..."
 tar -czf backend.tar.gz DemoCloud.Backend
 gcloud compute scp backend.tar.gz $BACKEND_VM:~/ --zone=$ZONE
 
-gcloud compute ssh $BACKEND_VM --zone=$ZONE --command="
-    tar -xzf backend.tar.gz
-    cd DemoCloud.Backend
-    
-    # Validation: List files to ensure we are in correct dir
-    ls -F
-    
-    # We need to adjust the Dockerfile because we are building from within the project dir, 
-    # but the original Dockerfile expects to be at solution level.
-    # We will create a modified Dockerfile for this specific deployment.
-    cat <<EOF > Dockerfile.vm
+# Create and run deployment script on VM (avoids quoting hell)
+cat <<EOF > deploy_backend_logic.sh
+#!/bin/bash
+set -e
+tar -xzf backend.tar.gz
+cd DemoCloud.Backend
+
+echo "Current directory contents:"
+ls -F
+
+# Create Dockerfile.vm
+cat <<DOCKERFILE > Dockerfile.vm
 # Build Stage
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
@@ -168,35 +169,42 @@ FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
 ENTRYPOINT dotnet DemoCloud.Backend.dll
+DOCKERFILE
+
+# Build and Run
+echo 'Building Backend with modified Dockerfile...'
+sudo docker build -t democloud-backend -f Dockerfile.vm .
+
+echo 'Running Backend...'
+# Stop existing
+sudo docker rm -f backend || true
+
+# Note: We escape variables that should be evaluated on the VM
+sudo docker run -d \\
+    --name backend \\
+    -p 8080:8080 \\
+    -e ConnectionStrings__DefaultConnection='Host=$DB_IP;Database=democloud;Username=postgres;Password=postgres' \\
+    -e ASPNETCORE_ENVIRONMENT=Development \\
+    --restart always \\
+    democloud-backend
+
+# Wait for startup
+sleep 10
+
+# Check if running
+if [ "\$(sudo docker inspect -f '{{.State.Running}}' backend)" = "true" ]; then
+    echo "Backend container is RUNNING."
+else
+    echo "Backend container FAILED to start. Logs:"
+    sudo docker logs backend
+    exit 1
+fi
 EOF
 
-    # Build and Run
-    echo 'Building Backend with modified Dockerfile...'
-    sudo docker build -t democloud-backend -f Dockerfile.vm .
-    
-    echo 'Running Backend...'
-    # Stop existing
-    sudo docker rm -f backend || true
-    
-    sudo docker run -d \
-        --name backend \
-        -p 8080:8080 \
-        -e ConnectionStrings__DefaultConnection='Host=$DB_IP;Database=democloud;Username=postgres;Password=postgres' \
-        -e ASPNETCORE_ENVIRONMENT=Development \
-        --restart always \
-        democloud-backend
-
-    # Wait for startup
-    sleep 10
-    
-    # Check if running
-    if [ "$(sudo docker inspect -f '{{.State.Running}}' backend)" = "true" ]; then
-        echo "Backend container is RUNNING."
-    else
-        echo "Backend container FAILED to start. Logs:"
-        sudo docker logs backend
-    fi
-"
+chmod +x deploy_backend_logic.sh
+gcloud compute scp deploy_backend_logic.sh $BACKEND_VM:~/ --zone=$ZONE
+gcloud compute ssh $BACKEND_VM --zone=$ZONE --command="./deploy_backend_logic.sh"
+rm deploy_backend_logic.sh
 
 # 6. Deploy Frontend
 echo "Deploying Frontend to $FRONTEND_VM..."
@@ -230,7 +238,7 @@ gcloud compute ssh $FRONTEND_VM --zone=$ZONE --command="
 FRONTEND_EXT_IP=$(gcloud compute instances describe $FRONTEND_VM --zone=$ZONE --format='get(networkInterfaces[0].accessConfigs[0].natIP)')
 
 # Cleanup
-rm backend.tar.gz frontend.tar.gz
+rm backend.tar.gz frontend.tar.gz startup.sh
 
 echo "------------------------------------------------"
 echo "Distributed Deployment Complete!"
