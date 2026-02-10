@@ -22,6 +22,28 @@ echo "Enabling Compute Engine API..."
 gcloud services enable compute.googleapis.com
 
 # Function to create VM
+# Create startup script file
+cat <<EOF > startup.sh
+#! /bin/bash
+apt-get update
+apt-get install -y ca-certificates curl gnupg
+# Add Docker's official GPG key:
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+chmod a+r /etc/apt/keyrings/docker.gpg
+# Add the repository to Apt sources:
+echo \
+  "deb [arch=\$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+  \$(. /etc/os-release && echo "\$VERSION_CODENAME") stable" | \
+  tee /etc/apt/sources.list.d/docker.list > /dev/null
+apt-get update
+apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+# Setup App Directory
+mkdir -p /home/$USER/app
+chown -R $USER:$USER /home/$USER/app
+EOF
+
 create_vm() {
     local VM_NAME=$1
     local TAGS=$2
@@ -37,25 +59,7 @@ create_vm() {
             --image-project=$IMAGE_PROJECT \
             --tags=$TAGS \
             --scopes=cloud-platform \
-            --metadata=startup-script="#! /bin/bash
-                apt-get update
-                apt-get install -y ca-certificates curl gnupg
-                # Add Docker's official GPG key:
-                install -m 0755 -d /etc/apt/keyrings
-                curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-                chmod a+r /etc/apt/keyrings/docker.gpg
-                # Add the repository to Apt sources:
-                echo \
-                  \"deb [arch=\$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-                  \$(. /etc/os-release && echo \"\$VERSION_CODENAME\") stable\" | \
-                  tee /etc/apt/sources.list.d/docker.list > /dev/null
-                apt-get update
-                apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-                
-                # Setup App Directory
-                mkdir -p /home/$USER/app
-                chown -R $USER:$USER /home/$USER/app
-            "
+            --metadata-from-file=startup-script=startup.sh
     fi
 }
 
@@ -64,8 +68,29 @@ create_vm $DB_VM "db-server"
 create_vm $BACKEND_VM "backend-server"
 create_vm $FRONTEND_VM "http-server,https-server"
 
-echo "Waiting for VMs to initialize (60s)..."
-sleep 60
+echo "Waiting for VMs to initialize..."
+
+# Function to wait for Docker
+wait_for_docker() {
+    local VM=$1
+    echo "Waiting for Docker to be ready on $VM..."
+    # Loop up to 5 minutes
+    for i in {1..30}; do
+        if gcloud compute ssh $VM --zone=$ZONE --command="command -v docker" &> /dev/null; then
+            echo "Docker is ready on $VM."
+            return 0
+        fi
+        echo "Docker not yet ready on $VM. Retrying in 10s..."
+        sleep 10
+    done
+    echo "Error: Docker failed to install on $VM."
+    return 1
+}
+
+# Wait for all VMs
+wait_for_docker $DB_VM
+wait_for_docker $BACKEND_VM
+wait_for_docker $FRONTEND_VM
 
 # 3. Network Configuration
 # Get Internal IPs
