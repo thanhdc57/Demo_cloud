@@ -111,6 +111,11 @@ if ! gcloud compute firewall-rules describe allow-internal-custom &> /dev/null; 
      gcloud compute firewall-rules create allow-internal-custom --allow=tcp:0-65535,udp:0-65535,icmp --source-ranges=10.128.0.0/9
 fi
 
+# Ensure Backend Port 8080 is open internally (redundant if allow-internal-custom works but good for safety)
+if ! gcloud compute firewall-rules describe allow-backend-internal &> /dev/null; then
+    gcloud compute firewall-rules create allow-backend-internal --allow=tcp:8080 --source-ranges=10.128.0.0/9
+fi
+
 # 4. Deploy Database
 echo "Deploying Database to $DB_VM..."
 gcloud compute ssh $DB_VM --zone=$ZONE --command="
@@ -165,6 +170,7 @@ COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "DemoCloud.Backend.dll"]
 EOF
 
+    # Build and Run
     echo 'Building Backend with modified Dockerfile...'
     sudo docker build -t democloud-backend -f Dockerfile.vm .
     
@@ -179,6 +185,17 @@ EOF
         -e ASPNETCORE_ENVIRONMENT=Development \
         --restart always \
         democloud-backend
+
+    # Wait for startup
+    sleep 10
+    
+    # Check if running
+    if [ "$(sudo docker inspect -f '{{.State.Running}}' backend)" = "true" ]; then
+        echo "Backend container is RUNNING."
+    else
+        echo "Backend container FAILED to start. Logs:"
+        sudo docker logs backend
+    fi
 "
 
 # 6. Deploy Frontend
@@ -197,6 +214,9 @@ gcloud compute ssh $FRONTEND_VM --zone=$ZONE --command="
     echo 'Running Frontend...'
     sudo docker rm -f frontend || true
     
+    # Wait a bit for backend to be fully ready
+    sleep 5
+
     # IMPORTANT: Nginx proxies to Backend Internal IP
     sudo docker run -d \
         --name frontend \

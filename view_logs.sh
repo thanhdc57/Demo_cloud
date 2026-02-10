@@ -1,0 +1,10 @@
+#!/bin/bash
+ZONE="us-central1-a"
+echo "--- Database Logs ---"
+gcloud compute ssh demo-db --zone=$ZONE --command="sudo docker logs postgres --tail 20"
+echo ""
+echo "--- Backend Logs ---"
+gcloud compute ssh demo-backend --zone=$ZONE --command="sudo docker logs backend --tail 50"
+echo ""
+echo "--- Frontend Logs ---"
+gcloud compute ssh demo-frontend --zone=$ZONE --command="sudo docker logs frontend --tail 20"
