@@ -17,9 +17,55 @@ public class ProductsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Product>>> GetProducts()
+    public async Task<ActionResult<PagedResult<Product>>> GetProducts(
+        string? search, 
+        string? sortColumn, 
+        string? sortOrder, 
+        int page = 1, 
+        int pageSize = 10)
     {
-        return await _context.Products.ToListAsync();
+        var query = _context.Products.AsQueryable();
+
+        // 1. Filtering
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            search = search.ToLower();
+            query = query.Where(p => p.Name.ToLower().Contains(search) || 
+                                     p.Description.ToLower().Contains(search));
+        }
+
+        // 2. Sorting
+        // Simple manual sort to avoid adding external dependencies like System.Linq.Dynamic.Core for now
+        if (sortOrder?.ToLower() == "desc")
+        {
+            query = sortColumn?.ToLower() switch
+            {
+                "price" => query.OrderByDescending(p => p.Price),
+                "name" => query.OrderByDescending(p => p.Name),
+                _ => query.OrderByDescending(p => p.Id)
+            };
+        }
+        else
+        {
+            query = sortColumn?.ToLower() switch
+            {
+                "price" => query.OrderBy(p => p.Price),
+                "name" => query.OrderBy(p => p.Name),
+                _ => query.OrderBy(p => p.Id)
+            };
+        }
+
+        // 3. Paging
+        var totalCount = await query.CountAsync();
+        var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+
+        return new PagedResult<Product>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize
+        };
     }
 
     [HttpGet("{id}")]
