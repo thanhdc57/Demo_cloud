@@ -1,12 +1,21 @@
-import { useState, useEffect } from 'react'
-import './App.css'
-
-const API_URL = '/api/products';
+import { useEffect, useState } from 'react';
+import './App.css';
 
 function App() {
   const [products, setProducts] = useState([]);
-  const [newProduct, setNewProduct] = useState({ name: '', price: '', description: '' });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+
+  // Form state
+  const [formData, setFormData] = useState({
+    name: '',
+    price: '',
+    description: ''
+  });
+
+  const API_URL = '/api/products';
 
   useEffect(() => {
     fetchProducts();
@@ -14,61 +23,74 @@ function App() {
 
   const fetchProducts = async () => {
     try {
+      setLoading(true);
       const response = await fetch(API_URL);
-      if (response.ok) {
-        const data = await response.json();
-        setProducts(data);
-      } else {
-        console.error('Failed to fetch products');
+      if (!response.ok) {
+        throw new Error('Failed to fetch products');
       }
-    } catch (error) {
-      console.error('Error fetching products:', error);
+      const data = await response.json();
+      setProducts(data);
+      setError(null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleCreate = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newProduct.name,
-          price: parseFloat(newProduct.price),
-          description: newProduct.description
-        }),
-      });
-      if (response.ok) {
-        setNewProduct({ name: '', price: '', description: '' });
-        fetchProducts();
-      }
-    } catch (error) {
-      console.error('Error creating product:', error);
-    }
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
-  const handleUpdate = async (e) => {
-    e.preventDefault();
-    if (!editingProduct) return;
+  const openValidModal = (product = null) => {
+    if (product) {
+      setEditingProduct(product);
+      setFormData({
+        name: product.name,
+        price: product.price,
+        description: product.description
+      });
+    } else {
+      setEditingProduct(null);
+      setFormData({ name: '', price: '', description: '' });
+    }
+    setIsModalOpen(true);
+  };
 
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setEditingProduct(null);
+    setFormData({ name: '', price: '', description: '' });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     try {
-      const response = await fetch(`${API_URL}/${editingProduct.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+      const url = editingProduct ? `${API_URL}/${editingProduct.id}` : API_URL;
+      const method = editingProduct ? 'PUT' : 'POST';
+      const body = editingProduct ? { ...formData, id: editingProduct.id } : formData;
+
+      const response = await fetch(url, {
+        method: method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
-          id: editingProduct.id,
-          name: editingProduct.name,
-          price: parseFloat(editingProduct.price),
-          description: editingProduct.description
+          ...body,
+          price: parseFloat(body.price)
         }),
       });
 
-      if (response.ok) {
-        setEditingProduct(null);
-        fetchProducts();
-      }
-    } catch (error) {
-      console.error('Error updating product:', error);
+      if (!response.ok) throw new Error('Operation failed');
+
+      await fetchProducts();
+      closeModal();
+    } catch (err) {
+      alert(err.message);
     }
   };
 
@@ -78,83 +100,133 @@ function App() {
       const response = await fetch(`${API_URL}/${id}`, {
         method: 'DELETE',
       });
-      if (response.ok) {
-        fetchProducts();
-      }
-    } catch (error) {
-      console.error('Error deleting product:', error);
+      if (!response.ok) throw new Error('Delete failed');
+      await fetchProducts();
+    } catch (err) {
+      alert(err.message);
     }
   };
 
   return (
-    <div className="container">
-      <h1>Product Management</h1>
+    <div className="app-container">
+      {/* Header */}
+      <header className="app-header">
+        <div className="logo">
+          <span>🚀</span> DemoCloud Store
+        </div>
+        <button className="add-btn" onClick={() => openValidModal()}>
+          <span>+</span> Add Product
+        </button>
+      </header>
 
-      <div className="form-section">
-        <h2>{editingProduct ? 'Edit Product' : 'Add New Product'}</h2>
-        <form onSubmit={editingProduct ? handleUpdate : handleCreate}>
-          <input
-            type="text"
-            placeholder="Name"
-            value={editingProduct ? editingProduct.name : newProduct.name}
-            onChange={(e) => editingProduct
-              ? setEditingProduct({ ...editingProduct, name: e.target.value })
-              : setNewProduct({ ...newProduct, name: e.target.value })}
-            required
-          />
-          <input
-            type="number"
-            placeholder="Price"
-            value={editingProduct ? editingProduct.price : newProduct.price}
-            onChange={(e) => editingProduct
-              ? setEditingProduct({ ...editingProduct, price: e.target.value })
-              : setNewProduct({ ...newProduct, price: e.target.value })}
-            required
-          />
-          <textarea
-            placeholder="Description"
-            value={editingProduct ? editingProduct.description : newProduct.description}
-            onChange={(e) => editingProduct
-              ? setEditingProduct({ ...editingProduct, description: e.target.value })
-              : setNewProduct({ ...newProduct, description: e.target.value })}
-          />
-          <button type="submit">{editingProduct ? 'Update' : 'Add'}</button>
-          {editingProduct && (
-            <button type="button" onClick={() => setEditingProduct(null)}>Cancel</button>
-          )}
-        </form>
-      </div>
-
-      <div className="list-section">
-        <h2>Product List</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Name</th>
-              <th>Price</th>
-              <th>Description</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
+      {/* Main Content */}
+      <main className="main-content">
+        {loading ? (
+          <div className="loading-state">Loading products...</div>
+        ) : error ? (
+          <div className="empty-state">Error: {error}</div>
+        ) : products.length === 0 ? (
+          <div className="empty-state">
+            <h3>No products found</h3>
+            <p>Get started by adding your first product.</p>
+          </div>
+        ) : (
+          <div className="product-grid">
             {products.map(product => (
-              <tr key={product.id}>
-                <td>{product.id}</td>
-                <td>{product.name}</td>
-                <td>${product.price}</td>
-                <td>{product.description}</td>
-                <td>
-                  <button onClick={() => setEditingProduct(product)}>Edit</button>
-                  <button onClick={() => handleDelete(product.id)}>Delete</button>
-                </td>
-              </tr>
+              <div key={product.id} className="product-card">
+                <div className="card-image-placeholder">📦</div>
+                <div className="card-body">
+                  <h3 className="product-name">{product.name}</h3>
+                  <div className="product-price">${Number(product.price).toFixed(2)}</div>
+                  <p className="product-desc">{product.description}</p>
+
+                  <div className="card-actions">
+                    <button
+                      className="btn btn-edit"
+                      onClick={() => openValidModal(product)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className="btn btn-delete"
+                      onClick={() => handleDelete(product.id)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </div>
+        )}
+      </main>
+
+      {/* Modal Form */}
+      {isModalOpen && (
+        <div className="modal-overlay" onClick={(e) => {
+          if (e.target.className === 'modal-overlay') closeModal();
+        }}>
+          <div className="modal-content">
+            <div className="modal-header">
+              <h2>{editingProduct ? 'Edit Product' : 'New Product'}</h2>
+              <button className="close-btn" onClick={closeModal}>&times;</button>
+            </div>
+
+            <form onSubmit={handleSubmit}>
+              <div className="form-group">
+                <label className="form-label">Name</label>
+                <input
+                  type="text"
+                  name="name"
+                  className="form-input"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  required
+                  placeholder="Product name"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Price</label>
+                <input
+                  type="number"
+                  name="price"
+                  className="form-input"
+                  value={formData.price}
+                  onChange={handleInputChange}
+                  required
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Description</label>
+                <textarea
+                  name="description"
+                  className="form-input"
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  rows="3"
+                  placeholder="Product description..."
+                />
+              </div>
+
+              <div className="form-actions">
+                <button type="button" className="btn btn-secondary" onClick={closeModal}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  {editingProduct ? 'Update Product' : 'Create Product'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
-  )
+  );
 }
 
-export default App
+export default App;
