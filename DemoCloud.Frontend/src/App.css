@@ -95,109 +95,85 @@ body {
   width: 100%;
 }
 
-.product-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1.5rem;
-}
-
-/* Product Card */
-.product-card {
+/* Table Styles - Modern & Clean */
+.table-wrapper {
   background-color: var(--surface);
   border-radius: var(--radius);
   border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
-  transition: transform 0.2s, box-shadow 0.2s;
-  display: flex;
-  flex-direction: column;
 }
 
-.product-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+.products-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
 }
 
-.card-image-placeholder {
-  height: 160px;
-  background-color: #f3f4f6;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-secondary);
-  font-size: 3rem;
-}
-
-.card-body {
+.products-table th {
+  background-color: #F8FAFC;
   padding: 1rem;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
 }
 
-.product-name {
-  font-size: 1.125rem;
+.products-table td {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.products-table tr:last-child td {
+  border-bottom: none;
+}
+
+.products-table tr:hover {
+  background-color: #F8FAFC;
+}
+
+.fw-bold {
   font-weight: 600;
-  margin-bottom: 0.5rem;
   color: var(--text-main);
 }
 
-.product-price {
-  font-size: 1.25rem;
-  font-weight: 700;
+.text-primary {
   color: var(--primary);
-  margin-bottom: 0.5rem;
+  font-weight: 600;
+  font-family: monospace;
+  font-size: 1rem;
 }
 
-.product-desc {
+.text-muted {
   color: var(--text-secondary);
   font-size: 0.875rem;
-  flex: 1;
-  margin-bottom: 1rem;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 
-.card-actions {
+.action-buttons {
   display: flex;
+  justify-content: flex-end;
   gap: 0.5rem;
-  border-top: 1px solid var(--border);
-  padding-top: 1rem;
-  margin-top: auto;
 }
 
-.btn {
-  flex: 1;
+.btn-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.2rem;
   padding: 0.5rem;
   border-radius: var(--radius);
-  border: 1px solid transparent;
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-edit {
-  background-color: transparent;
-  border-color: var(--border);
-  color: var(--text-main);
+  transition: background-color 0.2s;
 }
 
 .btn-edit:hover {
-  background-color: var(--background);
-  border-color: var(--text-secondary);
-}
-
-.btn-delete {
-  background-color: transparent;
-  color: var(--danger);
-  border-color: transparent;
+  background-color: #EEF2FF;
 }
 
 .btn-delete:hover {
   background-color: #FEF2F2;
-  color: var(--danger-hover);
 }
 
 /* Modal */

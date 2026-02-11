@@ -131,32 +131,44 @@ function App() {
             <p>Get started by adding your first product.</p>
           </div>
         ) : (
-          <div className="product-grid">
-            {products.map(product => (
-              <div key={product.id} className="product-card">
-                <div className="card-image-placeholder">📦</div>
-                <div className="card-body">
-                  <h3 className="product-name">{product.name}</h3>
-                  <div className="product-price">${Number(product.price).toFixed(2)}</div>
-                  <p className="product-desc">{product.description}</p>
-
-                  <div className="card-actions">
-                    <button
-                      className="btn btn-edit"
-                      onClick={() => openValidModal(product)}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      className="btn btn-delete"
-                      onClick={() => handleDelete(product.id)}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
+          <div className="table-wrapper">
+            <table className="products-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Price</th>
+                  <th>Description</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {products.map(product => (
+                  <tr key={product.id}>
+                    <td className="fw-bold">{product.name}</td>
+                    <td className="text-primary">${Number(product.price).toFixed(2)}</td>
+                    <td className="text-muted">{product.description}</td>
+                    <td>
+                      <div className="action-buttons">
+                        <button
+                          className="btn-icon btn-edit"
+                          onClick={() => openValidModal(product)}
+                          title="Edit"
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          className="btn-icon btn-delete"
+                          onClick={() => handleDelete(product.id)}
+                          title="Delete"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </main>
